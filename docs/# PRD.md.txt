@@ -1,0 +1,281 @@
+# PRD.md
+
+## A. Executive Summary
+
+**Product Vision:** To democratize enterprise-grade Conversion Rate Optimization (CRO) by providing instant, AI-driven, and highly actionable landing page audits that empower marketing teams and agency founders to increase conversion rates effortlessly.
+
+**Business Objective:** Launch a $0-budget, high-value, B2B lead-generation platform. ConvertAudit AI will serve as a top-of-funnel magnet, demonstrating immediate value to users by offering a comprehensive audit in exchange for their email/contact data (roadmap phase) or simply building brand authority and trust in the initial phase.
+
+**Lead-Generation Strategy:** Provide a frictionless "Aha!" moment. By requiring only a public URL, the barrier to entry is virtually zero. The immediate delivery of a high-quality, actionable report establishes authority, making the user highly receptive to backend service upsells, SaaS subscriptions, or agency consulting offers.
+
+**Target Audience:** - Digital Marketing Agencies
+
+* SaaS Founders & Indie Hackers
+* E-commerce Store Owners
+* Performance Marketers & Media Buyers
+
+**Core Value Proposition:** "Drop your link, double your conversions." ConvertAudit AI replaces hours of manual heuristic analysis with an instant, intelligent, visually digestible report powered by Google Gemini, directly translating raw DOM data into revenue-driving UX and copy adjustments.
+
+---
+
+## B. Product Overview
+
+**Problem Statement:** Conducting a thorough CRO audit requires deep expertise in UX, copywriting, and behavioral psychology. Most businesses cannot afford specialized CRO agencies, and manual audits are time-consuming, biased, and often lack clear prioritization.
+
+**Solution Overview:** ConvertAudit AI acts as an autonomous Staff Product Designer and Copywriter. It extracts the raw HTML of any given public URL, parses the semantic structure, copy, and metadata, and feeds this context to a highly-tuned Gemini AI model. The result is a graded, prioritized dashboard of recommendations.
+
+**User Journey:** 1. User lands on the homepage and is presented with a single, clear input field.
+2. User enters a target URL (e.g., `https://their-startup.com`) and clicks "Analyze".
+3. A progressive loading screen engages the user, explaining each step of the background processing.
+4. The dashboard hydrates with three core scores (UX, Copy, Conversion Probability) and categorized accordion lists of recommendations.
+5. User reviews the data and clicks "Export to PDF" to share with their team or clients.
+
+**Expected Outcomes:** - Instant delivery of a 5+ point actionable checklist.
+
+* Zero-latency perceived wait time via engaging progressive loading.
+* A seamless, responsive, and printable final artifact.
+
+---
+
+## C. Technical Architecture
+
+**Frontend Architecture:** Next.js 14 App Router utilizing Server Components for initial page loads and SEO, coupled with Client Components strictly for interactive elements (forms, progressive loading states, accordions, and PDF print triggers). Tailwind CSS for utility-first styling and Lucide React for consistent, lightweight iconography.
+
+**Backend Architecture:** Next.js Serverless Route Handlers (`app/api/audit/route.ts`). Designed as a stateless pipeline: Request validation -> HTML Fetching -> Cheerio DOM Parsing -> Prompt Construction -> Gemini AI Invocation -> JSON Response Formatting.
+
+**API Flow:**
+
+1. Client POSTs URL to `/api/audit`.
+2. Server validates the URL structure and security constraints (preventing SSRF).
+3. Server fetches the target URL HTML.
+4. Cheerio extracts `<title>`, `<meta>`, `<h1>`-`<h6>`, `<p>`, `<a>` (CTAs), and image alt tags.
+5. Parsed text is injected into a strict Gemini prompt template requesting a JSON schema.
+6. Server returns the structured JSON report to the client.
+
+**AI Workflow:** Utilizes `@google/generative-ai`. The prompt is engineered with zero-shot instruction, leveraging a structured output schema to guarantee a reliable JSON payload. The model is instructed to adopt the persona of a Principal CRO Expert.
+
+**Data Flow Diagram:**
+
+```text
+[User Client] 
+   │
+   ├─ (1) POST /api/audit { url: "https://..." }
+   ▼
+[Next.js API Route (Serverless)]
+   │
+   ├─ (2) URL Validation & SSRF Check
+   ├─ (3) Fetch HTML from Target URL
+   ▼
+[Cheerio Extraction Engine]
+   │
+   ├─ (4) Extract semantic tags, copy, CTAs
+   ├─ (5) Sanitize and compress payload (remove scripts, styles)
+   ▼
+[Gemini AI Engine]
+   │
+   ├─ (6) Inject payload into CRO Prompt
+   ├─ (7) Generate structured JSON (Scores, Recommendations)
+   ▼
+[Next.js API Route (Serverless)]
+   │
+   ├─ (8) Format and validate JSON response
+   ▼
+[User Client]
+   │
+   └─ (9) Hydrate Dashboard & Render Report
+
+```
+
+---
+
+## D. Feature Specifications
+
+### Core Entry Interface
+
+* **URL Validation:** Client-side regex to ensure standard HTTP/HTTPS URL format. Server-side URL parsing.
+* **User Input Flow:** Single centered hero input with a prominent call-to-action button.
+* **Error States:** Inline validation messages for malformed URLs, unreachable domains, or server timeouts.
+* **Loading States:** Transitions seamlessly from the hero state to the Progressive Loading Experience.
+
+### Progressive Loading Experience
+
+To mask the 5-15 second API latency, the client will display a dynamic status sequence:
+
+1. `Scraping Target DOM Structure...` (0-2s)
+2. `Extracting Core Copy & Headers...` (2-4s)
+3. `Executing Gemini AI CRO Brainstorming...` (4-8s)
+4. `Hydrating Report Dashboard...` (8s+)
+
+### Serverless Extraction Layer
+
+* **Endpoint:** `POST /api/audit`
+* **Input Validation:** Zod schema validation ensuring `url` is a valid string.
+* **Fetch Strategy:** Standard `fetch` with custom headers (e.g., standard User-Agent) to avoid basic bot-blocking.
+* **Cheerio Extraction Pipeline:** Target `.text()` of structural elements. Strip all `<script>`, `<style>`, `<nav>`, and `<footer>` tags to save token context limits. Focus on main body content.
+* **Failure Handling:** Try/catch blocks around fetch and AI calls. Return standardized 4xx/5xx JSON error responses.
+* **Timeout Strategy:** Vercel serverless functions have a standard 10s-60s timeout depending on the plan. The API must optimize the Cheerio extraction to sub-1-second to leave maximum time for the Gemini API resolution.
+
+### AI Audit Engine
+
+* **Gemini Integration:** Initialize `GoogleGenerativeAI` with standard model (e.g., `gemini-1.5-flash` for speed/cost balance).
+* **Prompt Architecture:** Strict persona injection. Specific instructions to evaluate Clarity, Friction, Value Proposition, and Trust signals.
+* **Context Optimization:** Limit Cheerio output to ~5,000 characters to prevent context bloat and ensure fast processing.
+* **Token Efficiency:** Request output in a strict, minimized JSON schema.
+* **Output Schema:** Forced structural compliance. (See API Contracts).
+
+### Report Dashboard
+
+* **UX Score (0-100):** Visual gauge or progress ring indicating layout and navigational clarity.
+* **Copy Score (0-100):** Visual gauge indicating readability, messaging power, and emotional resonance.
+* **Conversion Probability Score (0-100):** Aggregate metric determining the overall likelihood of user action.
+* **Recommendations:** Categorized into "Critical Fixes", "Quick Wins", and "Strategic Improvements".
+* **Accordion Sections:** Expandable UI for each recommendation detailing "The Issue", "The Impact", and "How to Fix".
+* **Responsive Layout:** CSS Grid/Flexbox ensuring perfect rendering from mobile (1 column) to desktop (2-3 columns).
+
+### PDF Export System
+
+* **Implementation:** Utilize native `window.print()`.
+* **Print-only Styling:** Tailwind `@media print` utilities to hide navigation, interactive buttons, and footer.
+* **Formatting:** Ensure page breaks (`break-inside-avoid`) prevent recommendation accordions from splitting across printed pages. Force text colors to high-contrast for physical printing.
+
+---
+
+## E. User Stories
+
+**Functional User Stories:**
+
+* As a user, I want to input my landing page URL so that I can get an objective CRO score.
+* As a user, I want to see a breakdown of UX vs Copy scores so I know which team member to assign fixes to.
+* As a user, I want specific, actionable steps to improve my page, not just generic advice.
+* As a user, I want to download the report as a PDF so I can present it to my stakeholders or clients.
+
+**Edge Cases:**
+
+* URL resolves to a Single Page Application (SPA) with no SSR content (Cheerio will only see a blank root div). *Mitigation: AI should detect low word count and advise the user that the site may be blocking crawlers or requires client-side rendering.*
+* URL is exceptionally long or content-heavy (e.g., Wikipedia page). *Mitigation: Truncate Cheerio text extraction to maximum character limit before sending to Gemini.*
+
+**Failure Scenarios:**
+
+* The target URL returns a 404/500 error. *Action: Abort process, show toast notification: "Unable to reach the destination URL. Please check the link and try again."*
+* Gemini API timeout or rate limit hit. *Action: Graceful fallback, show toast: "AI analysis is currently at capacity. Please try again in a few moments."*
+
+---
+
+## F. Non-Functional Requirements
+
+* **Performance:** Initial page load under 1.5s (LCP). Audit generation under 12 seconds.
+* **Security:** SSRF (Server-Side Request Forgery) protection. The API must reject requests to `localhost`, `127.0.0.1`, internal IP ranges, or non-HTTP protocols. Input URL must be sanitized.
+* **Scalability:** Stateless serverless functions allow infinite horizontal scaling on Vercel.
+* **Accessibility (a11y):** ARIA labels on all form inputs and interactive accordions. Minimum contrast ratios enforced via Tailwind colors. Full keyboard navigability for the dashboard.
+* **Mobile Responsiveness:** 100% functional on screens down to 320px width. Touch-friendly tap targets (minimum 44x44px).
+* **SEO Considerations:** Static landing page optimized with metadata, OpenGraph tags, and semantic HTML to attract organic search traffic for "Free CRO Audit Tool".
+
+---
+
+## G. Folder Structure
+
+```text
+src/
+├── app/
+│   ├── api/
+│   │   └── audit/
+│   │       └── route.ts         # Serverless extraction & AI logic
+│   ├── report/
+│   │   └── page.tsx             # Interactive report dashboard (Client Component)
+│   ├── layout.tsx               # Root layout with font and metadata
+│   ├── page.tsx                 # Home/Entry page (Server Component)
+│   └── globals.css              # Tailwind directives & print styles
+├── components/
+│   ├── ui/
+│   │   ├── button.tsx           # Reusable button with variants
+│   │   ├── input.tsx            # URL input field
+│   │   ├── progress-ring.tsx    # Circular score visualizer
+│   │   └── accordion.tsx        # Expandable recommendation items
+│   ├── features/
+│   │   ├── audit-form.tsx       # Form handling and submission state
+│   │   ├── progressive-loader.tsx # Loading sequence animations
+│   │   └── report-dashboard.tsx # Main dashboard layout
+│   └── icons.tsx                # Lucide icon wrappers
+├── lib/
+│   ├── ai.ts                    # Gemini initialization and prompt templates
+│   ├── scraper.ts               # Cheerio fetching and parsing logic
+│   ├── utils.ts                 # Tailwind `cn` utility and helpers
+│   └── validations.ts           # Zod schemas for URL and API responses
+├── types/
+│   └── index.ts                 # Global TypeScript interfaces
+└── .env.local
+
+```
+
+---
+
+## H. API Contracts
+
+**POST `/api/audit**`
+
+*Request Header:* `Content-Type: application/json`
+
+*Request Body:*
+
+```json
+{
+  "url": "https://example.com"
+}
+
+```
+
+*Response Body (Success - 200 OK):*
+
+```json
+{
+  "scores": {
+    "ux": 78,
+    "copy": 85,
+    "conversionProbability": 80
+  },
+  "recommendations": [
+    {
+      "category": "Critical Fix",
+      "issue": "Primary CTA is below the fold.",
+      "impact": "High drop-off rate before users see the main offer.",
+      "solution": "Move the 'Start Free Trial' button above the fold in the hero section."
+    }
+  ]
+}
+
+```
+
+*Response Body (Error - 400/500):*
+
+```json
+{
+  "error": "Failed to extract content from the provided URL. Please verify the link is accessible."
+}
+
+```
+
+---
+
+## I. Environment Variables
+
+Create a `.env.local` file at the root.
+
+```env
+# Google Gemini API
+GEMINI_API_KEY="your_gemini_api_key_here"
+
+# Application URL (for metadata and internal absolute routing)
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+```
+
+---
+
+## J. Future Roadmap
+
+* **Phase 2:** Email gating (User must enter email to view the full report, creating a lead pipeline).
+* **Phase 3:** PDF White-labeling (Allow agency users to upload their logo to the printed report).
+* **Phase 4:** Historical Audits & User Accounts (Implement NextAuth to save past URL scans).
+* **Phase 5:** Competitor Comparison (Input two URLs and output a comparative side-by-side analysis).
+
+---
