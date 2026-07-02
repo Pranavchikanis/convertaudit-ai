@@ -43,8 +43,8 @@ export function AuditForm() {
 
       setReport(data);
       setStatus("success");
-    } catch (err: any) {
-      setErrorMsg(err.message || "Failed to analyze the URL. Please try again.");
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed to analyze the URL. Please try again.");
       setStatus("error");
     }
   };

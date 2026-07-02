@@ -30,7 +30,7 @@ function validateUrl(urlString: string): boolean {
     }
     
     return true;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       }
       
       html = await response.text();
-    } catch (error) {
+    } catch (_error) {
       return NextResponse.json(
         { error: 'Failed to extract content from the provided URL. Please verify the link is accessible.' },
         { status: 400 }
